@@ -2,15 +2,45 @@ import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Note from '@/models/Note';
 import mongoose from 'mongoose';
+import jwt from 'jsonwebtoken';
+
+if (!process.env.JWT_SECRET) {
+  throw new Error('Please define the JWT_SECRET environment variable');
+}
+
+// Helper function to verify JWT token
+const verifyToken = (token: string) => {
+  try {
+    return jwt.verify(token, process.env.JWT_SECRET!) as { userId: string };
+  } catch (error) {
+    return null;
+  }
+};
 
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
+    const token = request.headers.get('authorization')?.split(' ')[1];
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const decoded = verifyToken(token);
+    if (!decoded) {
+      return NextResponse.json(
+        { error: 'Invalid token' },
+        { status: 401 }
+      );
+    }
+
+    const { id } = params;
     await connectDB();
-    const note = await Note.findOne({ id });
+    const note = await Note.findOne({ id, user: decoded.userId });
     
     if (!note) {
       return NextResponse.json(
@@ -34,7 +64,24 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
+    const token = request.headers.get('authorization')?.split(' ')[1];
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const decoded = verifyToken(token);
+    if (!decoded) {
+      return NextResponse.json(
+        { error: 'Invalid token' },
+        { status: 401 }
+      );
+    }
+
+    const resolvedParams = await params;
+    const id = resolvedParams.id;
     await connectDB();
     const body = await request.json();
     
@@ -47,7 +94,7 @@ export async function PUT(
     }
     
     const note = await Note.findOneAndUpdate(
-      { id },
+      { id, user: decoded.userId },
       { ...body, updatedAt: new Date() },
       { 
         new: true, 
@@ -83,9 +130,26 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
+    const token = request.headers.get('authorization')?.split(' ')[1];
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const decoded = verifyToken(token);
+    if (!decoded) {
+      return NextResponse.json(
+        { error: 'Invalid token' },
+        { status: 401 }
+      );
+    }
+
+    const resolvedParams = await params;
+    const id = resolvedParams.id;
     await connectDB();
-    const note = await Note.findOneAndDelete({ id });
+    const note = await Note.findOneAndDelete({ id, user: decoded.userId });
     
     if (!note) {
       return NextResponse.json(

@@ -5,9 +5,11 @@ import type React from "react"
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { StickyNote, CheckSquare, Moon, Sun, Palette, X } from "lucide-react"
+import { StickyNote, CheckSquare, Moon, Sun, Palette, X, LogOut } from "lucide-react"
 import { useNotes } from "@/hooks/useNotes"
 import { CanvasItem, TodoItem } from "@/types/canvas"
+import { useAuth } from "@/contexts/AuthContext"
+import toast from "react-hot-toast"
 
 const lightThemeColors = [
   "bg-yellow-300",
@@ -33,6 +35,7 @@ const darkThemeColors = [
 
 export default function Component() {
   const { notes, loading, error, createNote, updateNote, deleteNote, setNotes } = useNotes();
+  const { user, logout } = useAuth();
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [draggedItem, setDraggedItem] = useState<string | null>(null)
@@ -482,6 +485,11 @@ export default function Component() {
     })
   }
 
+  const handleLogout = () => {
+    logout();
+    toast.success('Successfully logged out!');
+  };
+
   // Don't render until client-side
   if (!isClient) {
     return (
@@ -530,7 +538,7 @@ export default function Component() {
       {/* Theme Toggle */}
       <Button
         onClick={() => setIsDarkMode(!isDarkMode)}
-        className={`fixed top-4 right-4 z-50 rounded-full w-12 h-12 p-0 ${
+        className={`fixed top-16 right-4 z-50 rounded-full w-12 h-12 p-0 ${
           isDarkMode
             ? "bg-gray-800 border-gray-600 text-white hover:bg-gray-700"
             : "bg-white border-gray-300 text-gray-900 hover:bg-gray-50"
