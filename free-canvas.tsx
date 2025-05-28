@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { StickyNote, CheckSquare, Moon, Sun, Palette, X, LogOut } from "lucide-react"
+import { StickyNote, CheckSquare, Moon, Sun, Palette, X, LogOut, Share } from "lucide-react"
 import { useNotes } from "@/hooks/useNotes"
 import { CanvasItem, TodoItem } from "@/types/canvas"
 import { useAuth } from "@/contexts/AuthContext"
@@ -653,7 +653,19 @@ export default function Component() {
                 />
 
                 {/* Action buttons */}
-                <div className="absolute top-1 right-5 flex gap-1 opacity-0 hover:opacity-100 transition-opacity">
+                <div className="absolute top-1 right-5 flex gap-1 transition-opacity">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      // TODO: Implement share functionality
+                      toast.success('Share functionality coming soon!')
+                    }}
+                    className="h-5 w-5 p-0 hover:bg-black hover:bg-opacity-10"
+                  >
+                    <Share className="w-3 h-3" />
+                  </Button>
                   <Button
                     size="sm"
                     variant="ghost"
