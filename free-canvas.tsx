@@ -6,32 +6,8 @@ import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { StickyNote, CheckSquare, Moon, Sun, Palette, X } from "lucide-react"
-
-interface TodoItem {
-  id: string
-  content: string
-  completed: boolean
-  isEditing?: boolean
-}
-
-interface CanvasItem {
-  id: string
-  type: "note" | "todo" | "image"
-  x: number
-  y: number
-  content: string
-  todos?: TodoItem[]
-  imageUrl?: string
-  imageWidth?: number
-  imageHeight?: number
-  noteWidth?: number
-  noteHeight?: number
-  completed?: boolean
-  isEditing?: boolean
-  color?: string
-  rotation?: number
-  createdAt?: Date
-}
+import { useNotes } from "@/hooks/useNotes"
+import { CanvasItem, TodoItem } from "@/types/canvas"
 
 const lightThemeColors = [
   "bg-yellow-300",
@@ -56,7 +32,7 @@ const darkThemeColors = [
 ]
 
 export default function Component() {
-  const [items, setItems] = useState<CanvasItem[]>([])
+  const { notes, loading, error, createNote, updateNote, deleteNote, setNotes } = useNotes();
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [draggedItem, setDraggedItem] = useState<string | null>(null)
@@ -82,45 +58,21 @@ export default function Component() {
     setIsClient(true)
   }, [])
 
-  // Load from localStorage on mount
+  // Load theme from localStorage on mount
   useEffect(() => {
     if (!isClient) return
 
     try {
-      const savedItems = localStorage.getItem("brainstorming-canvas-items")
       const savedTheme = localStorage.getItem("brainstorming-canvas-theme")
-
-      if (savedItems) {
-        const parsedItems = JSON.parse(savedItems)
-        // Filter out items with blob URLs that are no longer valid
-        const validItems = parsedItems.filter((item: CanvasItem) => {
-          if (item.imageUrl && item.imageUrl.startsWith("blob:")) {
-            return false // Remove blob URLs as they're not persistent
-          }
-          return true
-        })
-        setItems(validItems)
-      }
-
       if (savedTheme) {
         setIsDarkMode(JSON.parse(savedTheme))
       }
     } catch (error) {
-      console.error("Error loading from localStorage:", error)
+      console.error("Error loading theme from localStorage:", error)
     }
   }, [isClient])
 
-  // Save to localStorage whenever items or theme changes
-  useEffect(() => {
-    if (!isClient) return
-
-    try {
-      localStorage.setItem("brainstorming-canvas-items", JSON.stringify(items))
-    } catch (error) {
-      console.error("Error saving items to localStorage:", error)
-    }
-  }, [items, isClient])
-
+  // Save theme to localStorage
   useEffect(() => {
     if (!isClient) return
 
@@ -179,7 +131,7 @@ export default function Component() {
               imageWidth: 200,
               imageHeight: 150,
             }
-            setItems((prev) => [...prev, newItem])
+            await createNote(newItem)
           }
         }
       }
@@ -191,44 +143,103 @@ export default function Component() {
 
   // Handle global mouse events for resizing
   useEffect(() => {
-    if (!isClient) return
+    if (!isClient || !resizingItem) return;
 
     const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (resizingItem) {
-        const deltaX = e.clientX - resizeStart.x
-        const deltaY = e.clientY - resizeStart.y
-        const newWidth = Math.max(150, resizeStart.width + deltaX)
-        const newHeight = Math.max(100, resizeStart.height + deltaY)
+      e.preventDefault();
+      e.stopPropagation();
 
-        setItems((prevItems) =>
-          prevItems.map((item) => {
-            if (item.id === resizingItem) {
-              if (item.type === "image") {
-                return { ...item, imageWidth: newWidth, imageHeight: newHeight }
-              } else {
-                return { ...item, noteWidth: newWidth, noteHeight: newHeight }
-              }
-            }
-            return item
-          }),
-        )
+      const item = notes.find((i) => i.id === resizingItem);
+      if (!item) return;
+
+      const deltaX = e.clientX - resizeStart.x;
+      const deltaY = e.clientY - resizeStart.y;
+      
+      const newWidth = Math.max(150, resizeStart.width + deltaX);
+      const newHeight = Math.max(100, resizeStart.height + deltaY);
+
+      // Update the note's dimensions directly in the state
+      const updatedNotes = notes.map(note => {
+        if (note.id === resizingItem) {
+          if (note.type === "image") {
+            return {
+              ...note,
+              imageWidth: newWidth,
+              imageHeight: newHeight
+            };
+          } else {
+            return {
+              ...note,
+              noteWidth: newWidth,
+              noteHeight: newHeight
+            };
+          }
+        }
+        return note;
+      });
+
+      // Update the state immediately for smooth resizing
+      setNotes(updatedNotes);
+    };
+
+    const handleGlobalMouseUp = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Save the final dimensions to the database
+      const item = notes.find((i) => i.id === resizingItem);
+      if (item) {
+        if (item.type === "image") {
+          updateNote(resizingItem, {
+            imageWidth: item.imageWidth,
+            imageHeight: item.imageHeight
+          });
+        } else {
+          updateNote(resizingItem, {
+            noteWidth: item.noteWidth,
+            noteHeight: item.noteHeight
+          });
+        }
       }
-    }
 
-    const handleGlobalMouseUp = () => {
-      setResizingItem(null)
-    }
+      setResizingItem(null);
+    };
 
-    if (resizingItem) {
-      document.addEventListener("mousemove", handleGlobalMouseMove)
-      document.addEventListener("mouseup", handleGlobalMouseUp)
-    }
+    window.addEventListener("mousemove", handleGlobalMouseMove, { passive: false });
+    window.addEventListener("mouseup", handleGlobalMouseUp, { passive: false });
 
     return () => {
-      document.removeEventListener("mousemove", handleGlobalMouseMove)
-      document.removeEventListener("mouseup", handleGlobalMouseUp)
-    }
-  }, [resizingItem, resizeStart, isClient])
+      window.removeEventListener("mousemove", handleGlobalMouseMove);
+      window.removeEventListener("mouseup", handleGlobalMouseUp);
+    };
+  }, [resizingItem, resizeStart, notes, updateNote, isClient, setNotes]);
+
+  // Handle resize start
+  const handleResizeStart = (e: React.MouseEvent, itemId: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    const item = notes.find((i) => i.id === itemId);
+    if (!item) return;
+
+    setSelectedItem(itemId);
+    setResizingItem(itemId);
+
+    const initialWidth = item.type === "image" 
+      ? (item.imageWidth || 200)
+      : (item.noteWidth || 200);
+    
+    const initialHeight = item.type === "image"
+      ? (item.imageHeight || 150)
+      : (item.noteHeight || 120);
+
+    setResizeStart({
+      x: e.clientX,
+      y: e.clientY,
+      width: initialWidth,
+      height: initialHeight
+    });
+  };
 
   // Handle canvas click to add new item
   const handleCanvasClick = (e: React.MouseEvent) => {
@@ -257,7 +268,7 @@ export default function Component() {
       createdAt: new Date(),
     }
 
-    setItems([...items, newItem])
+    createNote(newItem)
     setSelectedTool(null)
     setSelectedItem(newItem.id)
   }
@@ -285,7 +296,7 @@ export default function Component() {
       createdAt: new Date(),
     }
 
-    setItems([...items, newItem])
+    createNote(newItem)
     setSelectedItem(newItem.id)
   }
 
@@ -293,9 +304,9 @@ export default function Component() {
   const handleItemClick = (e: React.MouseEvent, itemId: string) => {
     e.stopPropagation()
     setSelectedItem(itemId)
-    const item = items.find((i) => i.id === itemId)
+    const item = notes.find((i) => i.id === itemId)
     if (item && item.type === "note") {
-      setItems(items.map((item) => (item.id === itemId ? { ...item, isEditing: true } : item)))
+      updateNote(itemId, { isEditing: true })
     }
   }
 
@@ -303,7 +314,7 @@ export default function Component() {
   const handleMouseDown = (e: React.MouseEvent, itemId: string) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
 
-    const item = items.find((i) => i.id === itemId)
+    const item = notes.find((i) => i.id === itemId)
     if (!item) return
 
     setDraggedItem(itemId)
@@ -314,39 +325,12 @@ export default function Component() {
     })
   }
 
-  // Handle resize start
-  const handleResizeStart = (e: React.MouseEvent, itemId: string) => {
-    e.stopPropagation()
-    e.preventDefault()
-
-    const item = items.find((i) => i.id === itemId)
-    if (!item) return
-
-    setResizingItem(itemId)
-
-    if (item.type === "image") {
-      setResizeStart({
-        x: e.clientX,
-        y: e.clientY,
-        width: item.imageWidth || 200,
-        height: item.imageHeight || 150,
-      })
-    } else {
-      setResizeStart({
-        x: e.clientX,
-        y: e.clientY,
-        width: item.noteWidth || 200,
-        height: item.noteHeight || 120,
-      })
-    }
-  }
-
   // Handle mouse move for dragging
   const handleMouseMove = (e: React.MouseEvent) => {
     if (draggedItem && !resizingItem) {
       const newX = e.clientX - dragOffset.x
       const newY = e.clientY - dragOffset.y
-      setItems(items.map((item) => (item.id === draggedItem ? { ...item, x: newX, y: newY } : item)))
+      updateNote(draggedItem, { x: newX, y: newY })
     }
   }
 
@@ -356,15 +340,21 @@ export default function Component() {
   }
 
   // Delete item
-  const deleteItem = (id: string) => {
-    setItems(items.filter((item) => item.id !== id))
+  const deleteItem = async (id: string) => {
+    try {
+      await deleteNote(id)
+    } catch (error) {
+      console.error("Error deleting item:", error)
+    }
   }
 
   // Edit note content
-  const editItem = (id: string, newContent: string) => {
-    setItems(items.map((item) => (item.id === id ? { ...item, content: newContent, isEditing: false } : item)))
-    // Auto-resize after editing
-    // Remove this auto-resize call
+  const editItem = async (id: string, newContent: string) => {
+    try {
+      await updateNote(id, { content: newContent })
+    } catch (error) {
+      console.error("Error updating item:", error)
+    }
   }
 
   // Auto-resize note based on content
@@ -374,67 +364,70 @@ export default function Component() {
   }
 
   // Add new todo to a todo note
-  const addTodoToNote = (noteId: string) => {
-    setItems(
-      items.map((item) => {
-        if (item.id === noteId && item.type === "todo") {
-          const newTodo: TodoItem = {
-            id: Date.now().toString(),
-            content: "",
-            completed: false,
-            isEditing: true,
-          }
-          return {
-            ...item,
-            todos: [...(item.todos || []), newTodo],
-          }
-        }
-        return item
-      }),
-    )
-    // Auto-resize after adding todo
-    // Remove this auto-resize call
+  const addTodoToNote = async (noteId: string) => {
+    const note = notes.find(item => item.id === noteId)
+    if (!note) return
+
+    const newTodo: TodoItem = {
+      id: Date.now().toString(),
+      content: "New Todo",
+      completed: false,
+      isEditing: true,
+    }
+
+    try {
+      await updateNote(noteId, {
+        todos: [...(note.todos || []), newTodo]
+      })
+    } catch (error) {
+      console.error("Error adding todo:", error)
+    }
   }
 
   // Update todo item
-  const updateTodoItem = (noteId: string, todoId: string, updates: Partial<TodoItem>) => {
-    setItems(
-      items.map((item) => {
-        if (item.id === noteId && item.type === "todo") {
-          return {
-            ...item,
-            todos: item.todos?.map((todo) => (todo.id === todoId ? { ...todo, ...updates } : todo)),
-          }
-        }
-        return item
-      }),
+  const updateTodoItem = async (noteId: string, todoId: string, updates: Partial<TodoItem>) => {
+    const note = notes.find(item => item.id === noteId)
+    if (!note || !note.todos) return
+
+    const updatedTodos = note.todos.map(todo =>
+      todo.id === todoId ? { ...todo, ...updates } : todo
     )
+
+    try {
+      await updateNote(noteId, { todos: updatedTodos })
+    } catch (error) {
+      console.error("Error updating todo:", error)
+    }
   }
 
   // Delete todo item
-  const deleteTodoItem = (noteId: string, todoId: string) => {
-    setItems(
-      items.map((item) => {
-        if (item.id === noteId && item.type === "todo") {
-          return {
-            ...item,
-            todos: item.todos?.filter((todo) => todo.id !== todoId),
-          }
-        }
-        return item
-      }),
-    )
-    // Auto-resize after deleting todo
-    // Remove this auto-resize call
+  const deleteTodoItem = async (noteId: string, todoId: string) => {
+    const note = notes.find(item => item.id === noteId)
+    if (!note || !note.todos) return
+
+    const updatedTodos = note.todos.filter(todo => todo.id !== todoId)
+
+    try {
+      await updateNote(noteId, { todos: updatedTodos })
+    } catch (error) {
+      console.error("Error deleting todo:", error)
+    }
   }
 
   // Change item color
-  const changeColor = (id: string) => {
-    const currentColors = getCurrentColors()
-    const currentColorIndex = currentColors.findIndex((color) => items.find((item) => item.id === id)?.color === color)
-    const nextColorIndex = (currentColorIndex + 1) % currentColors.length
+  const changeColor = async (id: string) => {
+    const note = notes.find(item => item.id === id)
+    if (!note) return
 
-    setItems(items.map((item) => (item.id === id ? { ...item, color: currentColors[nextColorIndex] } : item)))
+    const colors = getCurrentColors()
+    const currentIndex = colors.indexOf(note.color || colors[0])
+    const nextColor = colors[(currentIndex + 1) % colors.length]
+
+    try {
+      await updateNote(id, { color: nextColor })
+    } catch (error) {
+      console.error("Error changing color:", error)
+    }
   }
 
   // Handle file drop for images
@@ -459,7 +452,7 @@ export default function Component() {
         imageWidth: 200,
         imageHeight: 150,
       }
-      setItems((prev) => [...prev, newItem])
+      createNote(newItem)
     }
   }
 
@@ -496,6 +489,14 @@ export default function Component() {
         <div className="text-gray-500">Loading...</div>
       </div>
     )
+  }
+
+  if (loading) {
+    return <div>Loading...</div>
+  }
+
+  if (error) {
+    return <div>Error: {error}</div>
   }
 
   return (
@@ -568,7 +569,7 @@ export default function Component() {
         onDragOver={(e) => e.preventDefault()}
       >
         {/* Canvas Items */}
-        {items.map((item) => {
+        {notes.map((item) => {
           // Render images directly without sticky note wrapper
           if (item.type === "image") {
             return (
@@ -687,11 +688,7 @@ export default function Component() {
                         onInput={(e) => {
                           // Update content in real-time
                           const newContent = e.currentTarget.value
-                          setItems((prevItems) =>
-                            prevItems.map((prevItem) =>
-                              prevItem.id === item.id ? { ...prevItem, content: newContent } : prevItem,
-                            ),
-                          )
+                          updateNote(item.id, { content: newContent })
 
                           // Auto-resize textarea immediately
                           e.currentTarget.style.height = "auto"
@@ -700,8 +697,6 @@ export default function Component() {
                             e.currentTarget.parentElement?.clientHeight || 200,
                           )
                           e.currentTarget.style.height = newHeight + "px"
-
-                          // Remove this entire section that automatically updates note height:
                         }}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && e.ctrlKey) {
@@ -818,19 +813,23 @@ export default function Component() {
                 )}
               </div>
 
-              {/* Resize handle for notes - moved outside the sticky note div */}
+              {/* Resize handle for notes */}
               {selectedItem === item.id && (
                 <div
-                  className="absolute w-6 h-6 bg-blue-500 border-2 border-white cursor-se-resize opacity-90 hover:opacity-100 rounded-full flex items-center justify-center shadow-lg"
+                  className="absolute w-10 h-10 bg-blue-500 border-2 border-white cursor-se-resize opacity-90 hover:opacity-100 rounded-full flex items-center justify-center shadow-lg"
                   style={{
-                    bottom: -8,
-                    right: -8,
+                    bottom: -20,
+                    right: -20,
                     zIndex: 10000,
-                    transform: `rotate(${-(item.rotation || 0)}deg)`, // Counter-rotate the handle
+                    transform: `rotate(${-(item.rotation || 0)}deg)`,
                   }}
-                  onMouseDown={(e) => handleResizeStart(e, item.id)}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    handleResizeStart(e, item.id);
+                  }}
                 >
-                  <div className="w-2 h-2 bg-white rounded-full"></div>
+                  <div className="w-4 h-4 bg-white rounded-full"></div>
                 </div>
               )}
             </div>
