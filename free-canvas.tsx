@@ -331,6 +331,8 @@ export default function Component() {
   // Handle mouse move for dragging
   const handleMouseMove = (e: React.MouseEvent) => {
     if (draggedItem && !resizingItem) {
+      e.preventDefault(); // Prevent default behavior
+      e.stopPropagation(); // Stop event propagation
       const newX = e.clientX - dragOffset.x
       const newY = e.clientY - dragOffset.y
       updateNote(draggedItem, { x: newX, y: newY })
@@ -338,8 +340,21 @@ export default function Component() {
   }
 
   // Handle mouse up to stop dragging
-  const handleMouseUp = () => {
-    setDraggedItem(null)
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (draggedItem) {
+      e.preventDefault(); // Prevent default behavior
+      e.stopPropagation(); // Stop event propagation
+      setDraggedItem(null)
+    }
+  }
+
+  // Handle mouse leave to stop dragging
+  const handleMouseLeave = (e: React.MouseEvent) => {
+    if (draggedItem) {
+      e.preventDefault(); // Prevent default behavior
+      e.stopPropagation(); // Stop event propagation
+      setDraggedItem(null)
+    }
   }
 
   // Delete item
@@ -572,7 +587,7 @@ export default function Component() {
         onDoubleClick={handleCanvasDoubleClick}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
         onDrop={handleDrop}
         onDragOver={(e) => e.preventDefault()}
       >

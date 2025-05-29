@@ -83,35 +83,64 @@ export function useNotes() {
       note.id === id ? { ...note, ...updates } : note
     ));
 
-    // Debounced API call
-    const debouncedUpdate = debounce(async () => {
-      try {
-        const response = await fetch(`/api/notes/${id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(updates),
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to update note');
-        }
-        
-        const updatedNote = await response.json();
-        setNotes(prev => prev.map(note => 
-          note.id === id ? updatedNote : note
-        ));
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-        // Revert the optimistic update on error
-        fetchNotes();
-      }
-    }, 500);
+    // Check if this is a position update
+    const isPositionUpdate = 'x' in updates || 'y' in updates;
 
-    debouncedUpdate();
-  }, []);
+    if (isPositionUpdate) {
+      // For position updates, use a shorter debounce time (100ms)
+      const debouncedUpdate = debounce(async () => {
+        try {
+          const response = await fetch(`/api/notes/${id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(updates),
+          });
+          
+          if (!response.ok) {
+            throw new Error('Failed to update note');
+          }
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'An error occurred');
+          // Revert the optimistic update on error
+          fetchNotes();
+        }
+      }, 100); // Shorter debounce time for position updates
+
+      debouncedUpdate();
+    } else {
+      // For other updates, use longer debounce time (500ms)
+      const debouncedUpdate = debounce(async () => {
+        try {
+          const response = await fetch(`/api/notes/${id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(updates),
+          });
+          
+          if (!response.ok) {
+            throw new Error('Failed to update note');
+          }
+          
+          const updatedNote = await response.json();
+          setNotes(prev => prev.map(note => 
+            note.id === id ? updatedNote : note
+          ));
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'An error occurred');
+          // Revert the optimistic update on error
+          fetchNotes();
+        }
+      }, 500);
+
+      debouncedUpdate();
+    }
+  }, [token, fetchNotes]);
 
   const deleteNote = async (id: string) => {
     try {
