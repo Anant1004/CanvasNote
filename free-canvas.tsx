@@ -67,10 +67,6 @@ export default function Component() {
     if (!isClient) return
 
     try {
-      // const savedTheme = localStorage.getItem("brainstorming-canvas-theme")
-      // if (savedTheme) {
-      //   setIsDarkMode(JSON.parse(savedTheme))
-      // }
     } catch (error) {
       console.error("Error loading theme from localStorage:", error)
     }
@@ -516,11 +512,20 @@ export default function Component() {
   }
 
   if (loading) {
-    return <div>Loading...</div>
+    return (
+      <div className={`h-screen w-full flex flex-col items-center justify-center ${isDarkMode?"bg-gray-900":"bg-gray-50"}`}>
+        <div className="relative w-16 h-16 mb-4">
+          <div className={`absolute w-16 h-16 border-4 ${isDarkMode?"border-gray-700":"border-gray-200"} rounded-full`}></div>
+          <div className="absolute w-16 h-16 border-4 border-blue-500 rounded-full animate-spin border-t-transparent"></div>
+        </div>
+        <div className={`text-xl font-semibold ${isDarkMode?"text-gray-300":"text-gray-700"} `}>loading Canvas...</div>
+        <div className={`mt-2 text-sm font-bold ${isDarkMode?"text-gray-300":"text-gray-700"}`}>Please wait while we prepare your workspace</div>
+      </div>
+    )
   }
 
   if (error) {
-    return <div>Error: {error}</div>
+    return <div className="h-screen w-full flex items-center justify-center">Error: {error}</div>
   }
 
   return (
