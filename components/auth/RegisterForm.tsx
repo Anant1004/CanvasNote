@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import toast from 'react-hot-toast';
 import { Loader2, Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function RegisterForm() {
   const [username, setUsername] = useState('');
@@ -15,6 +16,7 @@ export default function RegisterForm() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
+  const { isDarkMode } = useTheme();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,8 +52,8 @@ export default function RegisterForm() {
   };
 
   return (
-    <Card className="w-full max-w-md p-6">
-      <h2 className="text-2xl font-bold mb-6 text-center">Register</h2>
+    <Card className={`w-full max-w-md p-6 ${isDarkMode ? "bg-gray-800 text-white border-gray-700" : "bg-white text-gray-900 border-gray-200"}`}>
+      <h2 className={`text-2xl font-bold mb-6 text-center ${isDarkMode ? "text-white" : "text-gray-900"}`}>Register</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="username" className="text-base font-bold mb-1 flex items-center">
@@ -64,7 +66,7 @@ export default function RegisterForm() {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
-            className="w-full focus-visible:ring-0 focus-visible:ring-offset-0"
+            className={`w-full focus-visible:ring-0 focus-visible:ring-offset-0 ${isDarkMode ? "bg-gray-700" : "bg-white"}`}
             disabled={loading}
           />
         </div>
@@ -79,7 +81,7 @@ export default function RegisterForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full focus-visible:ring-0 focus-visible:ring-offset-0"
+            className={`w-full focus-visible:ring-0 focus-visible:ring-offset-0 ${isDarkMode ? "bg-gray-700" : "bg-white"}`}
             disabled={loading}
           />
         </div>
@@ -95,7 +97,7 @@ export default function RegisterForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full pr-10 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className={`w-full pr-10 focus-visible:ring-0 focus-visible:ring-offset-0 ${isDarkMode ? "bg-gray-700" : "bg-white"}`}
               disabled={loading}
             />
             <button

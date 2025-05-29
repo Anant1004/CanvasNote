@@ -10,6 +10,7 @@ import { useNotes } from "@/hooks/useNotes"
 import { CanvasItem, TodoItem } from "@/types/canvas"
 import { useAuth } from "@/contexts/AuthContext"
 import toast from "react-hot-toast"
+import { useTheme } from "@/contexts/ThemeContext"
 
 const lightThemeColors = [
   "bg-yellow-300",
@@ -36,7 +37,6 @@ const darkThemeColors = [
 export default function Component() {
   const { notes, loading, error, createNote, updateNote, deleteNote, setNotes } = useNotes();
   const { user, logout } = useAuth();
-  const [isDarkMode, setIsDarkMode] = useState(false)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [draggedItem, setDraggedItem] = useState<string | null>(null)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
@@ -46,6 +46,7 @@ export default function Component() {
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 })
   const [isClient, setIsClient] = useState(false)
   const canvasRef = useRef<HTMLDivElement>(null)
+  const { isDarkMode } = useTheme();
 
   // Get current color palette based on theme
   const getCurrentColors = () => (isDarkMode ? darkThemeColors : lightThemeColors)
@@ -66,10 +67,10 @@ export default function Component() {
     if (!isClient) return
 
     try {
-      const savedTheme = localStorage.getItem("brainstorming-canvas-theme")
-      if (savedTheme) {
-        setIsDarkMode(JSON.parse(savedTheme))
-      }
+      // const savedTheme = localStorage.getItem("brainstorming-canvas-theme")
+      // if (savedTheme) {
+      //   setIsDarkMode(JSON.parse(savedTheme))
+      // }
     } catch (error) {
       console.error("Error loading theme from localStorage:", error)
     }
@@ -80,7 +81,7 @@ export default function Component() {
     if (!isClient) return
 
     try {
-      localStorage.setItem("brainstorming-canvas-theme", JSON.stringify(isDarkMode))
+      // localStorage.setItem("brainstorming-canvas-theme", JSON.stringify(isDarkMode))
     } catch (error) {
       console.error("Error saving theme to localStorage:", error)
     }
@@ -524,9 +525,7 @@ export default function Component() {
 
   return (
     <div
-      className={`min-h-screen transition-colors duration-300 ${
-        isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"
-      }`}
+      className={`min-h-screen transition-colors duration-300 ${isDarkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"}`}
       onClick={() => setSelectedItem(null)}
     >
       {/* Global CSS to hide all scrollbars */}
@@ -550,24 +549,9 @@ export default function Component() {
         }
       `}</style>
 
-      {/* Theme Toggle */}
-      <Button
-        onClick={() => setIsDarkMode(!isDarkMode)}
-        className={`fixed top-16 right-4 z-50 rounded-full w-12 h-12 p-0 ${
-          isDarkMode
-            ? "bg-gray-800 border-gray-600 text-white hover:bg-gray-700"
-            : "bg-white border-gray-300 text-gray-900 hover:bg-gray-50"
-        }`}
-        variant="outline"
-      >
-        {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-      </Button>
-
       {/* Floating Clock */}
       <Card
-        className={`fixed top-4 left-4 z-50 p-4 ${
-          isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-        }`}
+        className={`fixed top-4 left-4 z-50 p-4 ${isDarkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"}`}
       >
         <div className="text-center">
           <div className={`text-2xl font-mono font-bold ${isDarkMode ? "text-white" : "text-gray-900"}`}>
