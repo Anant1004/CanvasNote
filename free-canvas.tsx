@@ -487,15 +487,26 @@ export default function Component() {
     })
   }
 
-  const formatCreationTime = (date: Date | undefined) => {
-    if (!date) return ""
-    return date.toLocaleString([], {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-  }
+  const formatCreationTime = (date: Date | string | number | undefined) => {
+    if (!date) return "";
+    try {
+      const dateObj = new Date(date);
+      // Check if the dateObj is a valid Date
+      if (isNaN(dateObj.getTime())) {
+        console.error("Invalid date value:", date);
+        return ""; // Return empty string for invalid dates
+      }
+      return dateObj.toLocaleDateString([], {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        timeZone: 'UTC'
+      });
+    } catch (e) {
+      console.error("Error formatting date:", date, e);
+      return ""; // Return empty string in case of other errors
+    }
+  };
 
   const handleLogout = () => {
     logout();
